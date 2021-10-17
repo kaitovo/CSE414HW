@@ -1,0 +1,131 @@
+-------------------------------file-------------------------------
+sqlite3 cse414hw2.db
+
+
+---------------------------create table---------------------------
+CREATE TABLE FLIGHTS (fid int PRIMARY KEY, 
+         month_id int,        -- 1-12
+         day_of_month int,    -- 1-31 
+         day_of_week_id int,  -- 1-7, 1 = Monday, 2 = Tuesday, etc
+         carrier_id varchar(7), 
+         flight_num int,
+         origin_city varchar(34), 
+         origin_state varchar(47), 
+         dest_city varchar(34), 
+         dest_state varchar(46), 
+         departure_delay int, -- in mins
+         taxi_out int,        -- in mins
+         arrival_delay int,   -- in mins
+         canceled int,        -- 1 means canceled
+         actual_time int,     -- in mins
+         distance int,        -- in miles
+         capacity int, 
+         price int            -- in $             
+         );
+         
+CREATE TABLE CARRIERS (cid varchar(7) PRIMARY KEY, name varchar(83));
+CREATE TABLE MONTHS (mid int PRIMARY KEY, month varchar(9));
+CREATE TABLE WEEKDAYS (did int PRIMARY KEY, day_of_week varchar(9));
+
+
+---------------------------import table---------------------------
+PRAGMA foreign_keys=ON;
+.mode csv
+.import C:\\Users\\Kaitovo\\Desktop\\flight-dataset\\flights-small.csv FLIGHTS
+.import C:\\Users\\Kaitovo\\Desktop\\flight-dataset\\carriers.csv CARRIERS
+.import C:\\Users\\Kaitovo\\Desktop\\flight-dataset\\months.csv MONTHS
+.import C:\\Users\\Kaitovo\\Desktop\\flight-dataset\\weekdays.csv WEEKDAYS
+
+
+-------------------------------p1-------------------------------
+SELECT DISTINCT f.flight_num
+FROM FLIGHTS AS f, WEEKDAYS AS w, CARRIERS AS c
+WHERE f.day_of_week_id=w.did AND
+	  f.carrier_id=c.cid AND
+	  f.origin_city='Seattle WA' AND
+	  f.dest_city='Boston MA' AND
+	  w.day_of_week='Monday' AND
+	  c.name='Alaska Airlines Inc.';
+	  
+	  
+-------------------------------p2-------------------------------
+SELECT c.name AS name, 
+	   f1.flight_num AS f1_flight_num,
+	   f1.origin_city AS f1_origin_city,
+	   f1.dest_city AS f1_dest_city,
+	   f1.actual_time AS f1_actual_time,
+	   f2.flight_num AS f2_flight_num,
+	   f2.origin_city AS f2_origin_city,
+	   f2.dest_city AS f2_dest_city,
+	   f2.actual_time AS f2_actual_time,
+	   (f1.actual_time+f2.actual_time) AS actual_time,
+FROM FLIGHTS AS f1, FLIGHTS AS f2, MONTHS AS m, CARRIERS AS c
+WHERE f1.carrier_id=c.cid AND
+      f2.carrier_id=c.cid AND
+	  f1.month_id=m.mid AND
+	  f2.month_id=m.mid AND
+	  m.month='July' AND
+	  f1.day_of_month=15 AND
+	  f2.day_of_month=15 AND
+	  f1.origin_city='Seattle WA' AND
+	  f2.dest_city='Boston MA' AND
+	  f1.dest_city=f2.origin_city AND
+	  f1.carrier_id=f2.carrier_id AND
+	  f1.actual_time+f2.actual_time<420;
+	  
+	  
+-------------------------------p3-------------------------------
+SELECT w.day_of_week AS day_of_week, AVG(f.arrival_delay) AS delay
+FROM FLIGHTS AS f, WEEKDAYS AS w
+WHERE f.day_of_week_id=w.did
+GROUP BY w.day_of_week
+ORDER BY AVG(f.arrival_delay) DESC
+LIMIT 1;
+
+
+-------------------------------p4-------------------------------
+SELECT DISTINCT c.name AS name
+FROM FLIGHTS AS f, CARRIERS AS c
+WHERE f.carrier_id=c.cid
+GROUP BY f.day_of_month, f.month_id, c.name
+HAVING COUNT(f.fid)>1000;
+
+
+-------------------------------p5-------------------------------
+SELECT c.name AS name, SUM(f.canceled)*100.0/COUNT(f.fid) AS Percentage
+FROM FLIGHTS AS f, CARRIERS AS c
+WHERE f.carrier_id=c.cid AND
+      f.origin_city='Seattle WA'
+GROUP BY c.name
+HAVING SUM(f.canceled)*100.0/COUNT(f.fid)>0.5
+ORDER BY SUM(f.canceled)*100.0/COUNT(f.fid) ASC;
+
+
+-------------------------------p6-------------------------------
+SELECT c.name AS carrier, MAX(f.price) AS max_price
+FROM FLIGHTS AS f, CARRIERS AS c
+WHERE f.carrier_id=c.cid AND
+	  (f.origin_city='Seattle WA' OR
+	  f.origin_city='New York NY') AND
+	  (f.dest_city='Seattle WA' OR
+	  f.dest_city='New York NY')
+GROUP BY c.name;
+
+
+-------------------------------p7-------------------------------
+SELECT SUM(f.capacity) AS capacity
+FROM FLIGHTS AS f, MONTHS AS m
+WHERE f.month_id=m.mid AND
+      f.day_of_month=10 AND
+      m.month='July' AND
+      (f.origin_city='Seattle WA' OR
+	  f.origin_city='San Francisco CA') AND
+	  (f.dest_city='Seattle WA' OR
+	  f.dest_city='San Francisco CA');
+
+
+-------------------------------p8-------------------------------
+SELECT c.name AS name, SUM(f.departure_delay) AS delay
+FROM FLIGHTS AS f, CARRIERS AS c
+WHERE f.carrier_id=c.cid
+GROUP BY c.name;
